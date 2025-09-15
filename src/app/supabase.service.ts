@@ -1,41 +1,51 @@
-import { Injectable } from '@angular/core';
+import { Injectable , signal} from '@angular/core';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { environment } from '../environments';
+import {Product} from '../models/Products';
+
 
 @Injectable({ providedIn: 'root' })
 export class SupabaseService {
-    private supabase: SupabaseClient;
-    private supabaseUrl = 'https://awzxdbvkjrxzhvvxhacl.supabase.co';
-    private supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF3enhkYnZranJ4emh2dnhoYWNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY3NTczMTgsImV4cCI6MjA3MjMzMzMxOH0.12-1n04cJITdtglayAM1TltI3SqnP5ZgLezvc8Tyh1A';
-
-    constructor() {
-        this.supabase = createClient(this.supabaseUrl, this.supabaseKey);
-    }
-
-    async addProduct(product: any) {
-        const { data, error } = await this.supabase.from('products').insert([product]);
-        if (error) throw error;
-        return data;
-    }
-
-    async getProducts() {
-        const { data, error } = await this.supabase.from('products').select('*');
-        if (error) throw error;
-        return data;
-    }
-
-    async updateProduct(id: number, updates: any) {
-        const { data, error } = await this.supabase.from('products').update(updates).eq('id', id);
-        if (error) throw error;
-        return data;
-    }
-
-    async deleteProduct(id: number) {
-        const { data, error } = await this.supabase.from('products').delete().eq('id', id);
-        if (error) throw error;
-        return data;
-    }
-
-    async logout() {
-        await this.supabase.auth.signOut();
-    }
+  supabase: SupabaseClient;
+  products = signal<Product[]>([]);
+ 
+  constructor() {
+    this.supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
+  }
+ 
+  async loadProducts() {
+    const { data, error } = await this.supabase.from('products').select('*');
+    if (error) throw error;
+    this.products.set(data as Product[]);
+  }
+ 
+  getProducts(): Product[] {
+    return this.products();
+  }
+ 
+  async addProduct(product: Product) {
+    const { error } = await this.supabase.from('products').insert([product]);
+    if (error) throw error;
+    await this.loadProducts();
+  }
+ 
+  async updateProduct(id: number, updates: Partial<Product>) {
+    const { error } = await this.supabase.from('products').update(updates).eq('id', id);
+    if (error) throw error;
+    await this.loadProducts();
+  }
+ 
+  async deleteProduct(id: number) {
+    const { error } = await this.supabase.from('products').delete().eq('id', id);
+    if (error) throw error;
+    await this.loadProducts();
+  }
+ 
+  async login(email: string, password: string) {
+    return await this.supabase.auth.signInWithPassword({ email, password });
+  }
+ 
+  async logout() {
+    await this.supabase.auth.signOut();
+  }
 }
